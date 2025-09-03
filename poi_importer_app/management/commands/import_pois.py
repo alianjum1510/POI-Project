@@ -1,17 +1,18 @@
 import pandas as pd
 import json
+import gzip
+import re
+from io import StringIO
+from typing import Any, List, Union
 from django.core.management.base import BaseCommand
 from django.db import IntegrityError
 from poi_importer_app.models import PoI
-import gzip
-from io import StringIO
-from typing import Any
-import re
 
 class Command(BaseCommand):
     """
     Django management command to import Point of Interest (PoI) data from CSV, JSON, or XML files using pandas.
     This command can optionally delete all existing PoIs before importing new ones.
+    Compatible with Python 3.10+.
     """
     help = 'Import Point of Interest data from CSV, JSON, or XML files using pandas.'
 
@@ -30,6 +31,7 @@ class Command(BaseCommand):
         if kwargs.get('reset'):
             PoI.objects.all().delete()
             self.stdout.write(self.style.WARNING('All existing PoIs deleted (reset).'))
+        
         for file_path in file_paths:
             file_extension = file_path.split('.')[-1].lower()
             self.stdout.write(f"Processing file: {file_path}")
@@ -43,7 +45,7 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.ERROR(f'Unsupported file format for {file_path}!'))
 
-    def import_csv(self, file_path):
+    def import_csv(self, file_path: str) -> None:
         """
         Imports data from a CSV file and processes it.
         
@@ -73,7 +75,7 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error reading CSV file: {e}"))
 
-    def import_json(self, file_path):
+    def import_json(self, file_path: str) -> None:
         """
         Imports data from a JSON file and processes it.
         
@@ -158,9 +160,8 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error reading XML file: {e}"))
 
-    def process_dataframe(self, df, file_type):
+    def process_dataframe(self, df: pd.DataFrame, file_type: str) -> None:
         """Process the pandas DataFrame and import POIs"""
-        # identifies total numer of records poccessed,error occured and if record exist than the duplicate
         success_count = 0
         error_count = 0
         duplicate_count = 0
@@ -228,16 +229,24 @@ class Command(BaseCommand):
             f"{file_type} Import Complete: {success_count} imported/updated, {duplicate_count} duplicates, {error_count} errors"
         ))
 
-    def parse_ratings(self, ratings_data):
+    def parse_ratings(self, ratings_data: Any) -> List[float]:
         """Parse ratings from various formats into a list of floats"""
-
         if ratings_data is None:
             return []
 
         try:
-            from pandas import Series
-            array_types = (list, tuple, set, Series)
-        except ImportError:
+            import numpy as np  
+            array_types = (list, tuple, set)
+            try:
+                from pandas import Series
+                array_types = array_types + (Series,)
+            except Exception:
+                pass
+            try:
+                array_types = array_types + (np.ndarray,)
+            except Exception:
+                pass
+        except Exception:
             array_types = (list, tuple, set)
 
         if isinstance(ratings_data, array_types):

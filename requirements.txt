@@ -1,5 +1,6 @@
-asgiref==3.9.1
-Django==5.2.5
-sqlparse==0.5.3
-pandas==2.1.4
-lxml==4.9.3
+# Python 3.10+ compatible requirements
+asgiref>=3.7.0
+Django>=4.2.0,<5.0
+sqlparse>=0.4.0
+pandas>=2.0.0
+lxml>=4.9.0
